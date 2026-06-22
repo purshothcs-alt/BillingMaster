@@ -24,7 +24,7 @@ export const MainLayout = () => {
         }}
       >
         <Header />
-        <Box sx={{ p: { xs: 2, sm: 3 }, pt: `${HEADER_HEIGHT}px` }}>
+        <Box sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 }, pt: `${HEADER_HEIGHT}px` }}>
           <ErrorBoundary>
             <Suspense fallback={<Loader fullScreen label="Loading page..." />}>
               <Outlet />

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(npm install *)",
+      "Bash(dotnet tool *)",
+      "Bash(dotnet ef *)"
+    ],
+    "additionalDirectories": [
+      "D:\\Working\\RnD\\BillingMaster-API\\src\\BillingMaster.Api"
+    ]
+  }
+}

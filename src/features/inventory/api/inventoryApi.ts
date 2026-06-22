@@ -1,4 +1,5 @@
 import { baseApi } from '@/services/api/baseApi';
+import type { BulkImportResult } from '@/shared/types/bulkImport';
 import type { InventoryItem, StockAdjustmentInput, StockMovement } from '../types';
 
 export const inventoryApi = baseApi.injectEndpoints({
@@ -15,7 +16,20 @@ export const inventoryApi = baseApi.injectEndpoints({
       query: (body) => ({ url: '/inventory/adjust', method: 'POST', body }),
       invalidatesTags: ['Inventory', 'StockMovement', 'Dashboard'],
     }),
+    bulkImportInventoryAdjustments: builder.mutation<BulkImportResult<InventoryItem>, FormData>({
+      query: (formData) => ({ url: '/inventory/import', method: 'POST', body: formData }),
+      invalidatesTags: ['Inventory', 'StockMovement', 'Dashboard'],
+    }),
+    downloadInventoryImportTemplate: builder.query<Blob, void>({
+      query: () => ({ url: '/inventory/import/template', responseHandler: (response) => response.blob() }),
+    }),
   }),
 });
 
-export const { useGetInventoryQuery, useGetStockMovementsQuery, useAdjustStockMutation } = inventoryApi;
+export const {
+  useGetInventoryQuery,
+  useGetStockMovementsQuery,
+  useAdjustStockMutation,
+  useBulkImportInventoryAdjustmentsMutation,
+  useLazyDownloadInventoryImportTemplateQuery,
+} = inventoryApi;

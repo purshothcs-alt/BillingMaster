@@ -1,4 +1,5 @@
 import { baseApi } from '@/services/api/baseApi';
+import type { BulkImportResult } from '@/shared/types/bulkImport';
 import type { Supplier, SupplierFormValues } from '../types';
 
 export const suppliersApi = baseApi.injectEndpoints({
@@ -22,6 +23,13 @@ export const suppliersApi = baseApi.injectEndpoints({
       query: (id) => ({ url: `/suppliers/${id}`, method: 'DELETE' }),
       invalidatesTags: [{ type: 'Supplier', id: 'LIST' }],
     }),
+    bulkImportSuppliers: builder.mutation<BulkImportResult<Supplier>, FormData>({
+      query: (formData) => ({ url: '/suppliers/import', method: 'POST', body: formData }),
+      invalidatesTags: [{ type: 'Supplier', id: 'LIST' }],
+    }),
+    downloadSuppliersTemplate: builder.query<Blob, void>({
+      query: () => ({ url: '/suppliers/import/template', responseHandler: (response) => response.blob() }),
+    }),
   }),
 });
 
@@ -30,4 +38,6 @@ export const {
   useCreateSupplierMutation,
   useUpdateSupplierMutation,
   useDeleteSupplierMutation,
+  useBulkImportSuppliersMutation,
+  useLazyDownloadSuppliersTemplateQuery,
 } = suppliersApi;

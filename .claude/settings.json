@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /tmp)",
+      "Bash(curl -s -X POST http://localhost:5227/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@billingmaster.com\",\"password\":\"Admin123!\"}' -o login.json)",
+      "Bash(curl -s -H 'Authorization: Bearer __TRACKED_VAR__' http://localhost:5227/api/products/import/template)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5227/api/products/import/template)"
+    ]
+  }
+}

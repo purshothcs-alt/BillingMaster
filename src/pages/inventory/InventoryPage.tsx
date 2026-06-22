@@ -1,16 +1,26 @@
 import { useMemo, useState } from 'react';
-import { Button, Chip, Tab, Tabs } from '@mui/material';
+import { Button, Chip, Stack, Tab, Tabs } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { createColumnHelper } from '@tanstack/react-table';
 import { PageHeader } from '@/shared/components/PageHeader/PageHeader';
 import { DataGrid } from '@/shared/components/DataGrid';
+import { BulkImportDialog } from '@/shared/components/BulkImportDialog';
 import { formatDateTime } from '@/shared/utils/format';
-import { useAppSelector } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { selectCurrentUser } from '@/features/auth/authSlice';
+import { toastSuccess } from '@/features/ui/toastSlice';
 import { PERMISSIONS } from '@/shared/constants/permissions';
-import { useGetInventoryQuery, useGetStockMovementsQuery } from '@/features/inventory/api/inventoryApi';
+import {
+  useBulkImportInventoryAdjustmentsMutation,
+  useGetInventoryQuery,
+  useGetStockMovementsQuery,
+  useLazyDownloadInventoryImportTemplateQuery,
+} from '@/features/inventory/api/inventoryApi';
 import { AdjustStockDialog } from '@/features/inventory/components/AdjustStockDialog';
 import type { InventoryItem, StockMovement } from '@/features/inventory/types';
+
+const INVENTORY_IMPORT_COLUMNS = ['ProductSku', 'Type', 'Quantity', 'Reason'];
 
 const inventoryColumnHelper = createColumnHelper<InventoryItem>();
 const movementColumnHelper = createColumnHelper<StockMovement>();
@@ -22,10 +32,14 @@ const movementColor: Record<StockMovement['type'], 'success' | 'error' | 'warnin
 };
 
 const InventoryPage = () => {
+  const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
   const canManage = user?.permissions.includes(PERMISSIONS.INVENTORY_MANAGE) ?? true;
   const [tab, setTab] = useState<'stock' | 'movements'>('stock');
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [bulkImportInventoryAdjustments] = useBulkImportInventoryAdjustmentsMutation();
+  const [downloadTemplate] = useLazyDownloadInventoryImportTemplateQuery();
 
   const { data: inventory, isLoading: loadingInventory } = useGetInventoryQuery();
   const { data: movements, isLoading: loadingMovements } = useGetStockMovementsQuery();
@@ -86,9 +100,14 @@ const InventoryPage = () => {
         subtitle="Track stock levels and movement history across warehouses"
         actions={
           canManage ? (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdjustOpen(true)}>
-              Adjust Stock
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => setImportOpen(true)}>
+                Import
+              </Button>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdjustOpen(true)}>
+                Adjust Stock
+              </Button>
+            </Stack>
           ) : undefined
         }
       />
@@ -117,6 +136,22 @@ const InventoryPage = () => {
       )}
 
       <AdjustStockDialog open={adjustOpen} onClose={() => setAdjustOpen(false)} />
+      <BulkImportDialog<InventoryItem>
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import Stock Adjustments"
+        expectedColumns={INVENTORY_IMPORT_COLUMNS}
+        templateFileName="inventory-template.csv"
+        onDownloadTemplate={() => downloadTemplate().unwrap()}
+        onUpload={(file) => {
+          const formData = new FormData();
+          formData.append('file', file);
+          return bulkImportInventoryAdjustments(formData).unwrap();
+        }}
+        onImportSuccess={(result) => {
+          dispatch(toastSuccess(`${result.importedCount} of ${result.totalRows} stock adjustments imported successfully.`));
+        }}
+      />
     </>
   );
 };

@@ -1,5 +1,6 @@
 import { baseApi } from '@/services/api/baseApi';
 import { setCachedValue } from '@/services/db/db';
+import type { BulkImportResult } from '@/shared/types/bulkImport';
 import type { Product, ProductFormValues } from '../types';
 
 export const PRODUCTS_CACHE_KEY = 'products';
@@ -35,6 +36,13 @@ export const productsApi = baseApi.injectEndpoints({
       query: (id) => ({ url: `/products/${id}`, method: 'DELETE' }),
       invalidatesTags: [{ type: 'Product', id: 'LIST' }],
     }),
+    bulkImportProducts: builder.mutation<BulkImportResult<Product>, FormData>({
+      query: (formData) => ({ url: '/products/import', method: 'POST', body: formData }),
+      invalidatesTags: [{ type: 'Product', id: 'LIST' }],
+    }),
+    downloadProductsTemplate: builder.query<Blob, void>({
+      query: () => ({ url: '/products/import/template', responseHandler: (response) => response.blob() }),
+    }),
   }),
 });
 
@@ -43,4 +51,6 @@ export const {
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
+  useBulkImportProductsMutation,
+  useLazyDownloadProductsTemplateQuery,
 } = productsApi;

@@ -1,20 +1,27 @@
-import { useMemo } from 'react';
-import { Chip } from '@mui/material';
+import { useMemo, useState } from 'react';
+import { Button, Chip } from '@mui/material';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { createColumnHelper } from '@tanstack/react-table';
 import { EntityCrudPage } from '@/shared/components/EntityCrudPage';
 import { FormSelect, FormTextField } from '@/shared/components/FormControls';
+import { BulkImportDialog } from '@/shared/components/BulkImportDialog';
 import { formatCurrency } from '@/shared/utils/format';
-import { useAppSelector } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { selectCurrentUser } from '@/features/auth/authSlice';
+import { toastSuccess } from '@/features/ui/toastSlice';
 import { PERMISSIONS } from '@/shared/constants/permissions';
 import {
+  useBulkImportCustomersMutation,
   useCreateCustomerMutation,
   useDeleteCustomerMutation,
   useGetCustomersQuery,
+  useLazyDownloadCustomersTemplateQuery,
   useUpdateCustomerMutation,
 } from '@/features/customers/api/customersApi';
 import { customerSchema, type CustomerFormSchema } from '@/features/customers/schemas';
 import type { Customer } from '@/features/customers/types';
+
+const CUSTOMER_IMPORT_COLUMNS = ['Name', 'Email', 'Phone', 'Address', 'City', 'GstNumber', 'CreditLimit', 'Status'];
 
 const columnHelper = createColumnHelper<Customer>();
 
@@ -30,8 +37,12 @@ const defaultValues: CustomerFormSchema = {
 };
 
 const CustomersPage = () => {
+  const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
   const canManage = user?.permissions.includes(PERMISSIONS.CUSTOMERS_MANAGE) ?? true;
+  const [importOpen, setImportOpen] = useState(false);
+  const [bulkImportCustomers] = useBulkImportCustomersMutation();
+  const [downloadTemplate] = useLazyDownloadCustomersTemplateQuery();
 
   const columns = useMemo(
     () => [
@@ -63,6 +74,7 @@ const CustomersPage = () => {
   );
 
   return (
+    <>
     <EntityCrudPage<Customer, CustomerFormSchema>
       title="Customers"
       subtitle="Manage your customer directory and credit accounts"
@@ -71,6 +83,13 @@ const CustomersPage = () => {
       schema={customerSchema}
       defaultValues={defaultValues}
       canManage={canManage}
+      extraToolbar={
+        canManage ? (
+          <Button size="small" startIcon={<UploadFileIcon />} onClick={() => setImportOpen(true)}>
+            Import
+          </Button>
+        ) : undefined
+      }
       getRowLabel={(c) => c.name}
       toEditValues={(c) => ({
         name: c.name,
@@ -121,6 +140,23 @@ const CustomersPage = () => {
         </>
       )}
     />
+    <BulkImportDialog<Customer>
+      open={importOpen}
+      onClose={() => setImportOpen(false)}
+      title="Import Customers"
+      expectedColumns={CUSTOMER_IMPORT_COLUMNS}
+      templateFileName="customers-template.csv"
+      onDownloadTemplate={() => downloadTemplate().unwrap()}
+      onUpload={(file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return bulkImportCustomers(formData).unwrap();
+      }}
+      onImportSuccess={(result) => {
+        dispatch(toastSuccess(`${result.importedCount} of ${result.totalRows} customers imported successfully.`));
+      }}
+    />
+    </>
   );
 };
 

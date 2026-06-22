@@ -1,20 +1,38 @@
-import { useMemo } from 'react';
-import { Chip } from '@mui/material';
+import { useMemo, useState } from 'react';
+import { Button, Chip } from '@mui/material';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { createColumnHelper } from '@tanstack/react-table';
 import { EntityCrudPage } from '@/shared/components/EntityCrudPage';
 import { FormSelect, FormTextField } from '@/shared/components/FormControls';
+import { BulkImportDialog } from '@/shared/components/BulkImportDialog';
 import { formatCurrency } from '@/shared/utils/format';
-import { useAppSelector } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { selectCurrentUser } from '@/features/auth/authSlice';
+import { toastSuccess } from '@/features/ui/toastSlice';
 import { PERMISSIONS } from '@/shared/constants/permissions';
 import {
+  useBulkImportProductsMutation,
   useCreateProductMutation,
   useDeleteProductMutation,
   useGetProductsQuery,
+  useLazyDownloadProductsTemplateQuery,
   useUpdateProductMutation,
 } from '@/features/products/api/productsApi';
 import { productSchema, type ProductFormSchema } from '@/features/products/schemas';
 import { PRODUCT_UNITS, type Product } from '@/features/products/types';
+
+const PRODUCT_IMPORT_COLUMNS = [
+  'Name',
+  'Sku',
+  'Barcode',
+  'Category',
+  'Unit',
+  'CostPrice',
+  'SellingPrice',
+  'TaxRate',
+  'ReorderLevel',
+  'Status',
+];
 
 const columnHelper = createColumnHelper<Product>();
 
@@ -32,8 +50,12 @@ const defaultValues: ProductFormSchema = {
 };
 
 const ProductsPage = () => {
+  const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
   const canManage = user?.permissions.includes(PERMISSIONS.PRODUCTS_MANAGE) ?? true;
+  const [importOpen, setImportOpen] = useState(false);
+  const [bulkImportProducts] = useBulkImportProductsMutation();
+  const [downloadTemplate] = useLazyDownloadProductsTemplateQuery();
 
   const columns = useMemo(
     () => [
@@ -62,6 +84,7 @@ const ProductsPage = () => {
   );
 
   return (
+    <>
     <EntityCrudPage<Product, ProductFormSchema>
       title="Products"
       subtitle="Manage your product catalog across all business lines"
@@ -71,6 +94,13 @@ const ProductsPage = () => {
       defaultValues={defaultValues}
       canManage={canManage}
       dialogMaxWidth="md"
+      extraToolbar={
+        canManage ? (
+          <Button size="small" startIcon={<UploadFileIcon />} onClick={() => setImportOpen(true)}>
+            Import
+          </Button>
+        ) : undefined
+      }
       getRowLabel={(p) => p.name}
       toEditValues={(p) => ({
         name: p.name,
@@ -130,6 +160,23 @@ const ProductsPage = () => {
         </>
       )}
     />
+    <BulkImportDialog<Product>
+      open={importOpen}
+      onClose={() => setImportOpen(false)}
+      title="Import Products"
+      expectedColumns={PRODUCT_IMPORT_COLUMNS}
+      templateFileName="products-template.csv"
+      onDownloadTemplate={() => downloadTemplate().unwrap()}
+      onUpload={(file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return bulkImportProducts(formData).unwrap();
+      }}
+      onImportSuccess={(result) => {
+        dispatch(toastSuccess(`${result.importedCount} of ${result.totalRows} products imported successfully.`));
+      }}
+    />
+    </>
   );
 };
 

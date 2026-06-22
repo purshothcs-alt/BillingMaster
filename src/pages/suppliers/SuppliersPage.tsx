@@ -1,19 +1,35 @@
-import { useMemo } from 'react';
-import { Chip } from '@mui/material';
+import { useMemo, useState } from 'react';
+import { Button, Chip } from '@mui/material';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { createColumnHelper } from '@tanstack/react-table';
 import { EntityCrudPage } from '@/shared/components/EntityCrudPage';
 import { FormSelect, FormTextField } from '@/shared/components/FormControls';
-import { useAppSelector } from '@/app/hooks';
+import { BulkImportDialog } from '@/shared/components/BulkImportDialog';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { selectCurrentUser } from '@/features/auth/authSlice';
+import { toastSuccess } from '@/features/ui/toastSlice';
 import { PERMISSIONS } from '@/shared/constants/permissions';
 import {
+  useBulkImportSuppliersMutation,
   useCreateSupplierMutation,
   useDeleteSupplierMutation,
   useGetSuppliersQuery,
+  useLazyDownloadSuppliersTemplateQuery,
   useUpdateSupplierMutation,
 } from '@/features/suppliers/api/suppliersApi';
 import { supplierSchema, type SupplierFormSchema } from '@/features/suppliers/schemas';
 import type { Supplier } from '@/features/suppliers/types';
+
+const SUPPLIER_IMPORT_COLUMNS = [
+  'Name',
+  'ContactPerson',
+  'Email',
+  'Phone',
+  'Address',
+  'GstNumber',
+  'PaymentTerms',
+  'Status',
+];
 
 const columnHelper = createColumnHelper<Supplier>();
 
@@ -29,8 +45,12 @@ const defaultValues: SupplierFormSchema = {
 };
 
 const SuppliersPage = () => {
+  const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
   const canManage = user?.permissions.includes(PERMISSIONS.SUPPLIERS_MANAGE) ?? true;
+  const [importOpen, setImportOpen] = useState(false);
+  const [bulkImportSuppliers] = useBulkImportSuppliersMutation();
+  const [downloadTemplate] = useLazyDownloadSuppliersTemplateQuery();
 
   const columns = useMemo(
     () => [
@@ -55,6 +75,7 @@ const SuppliersPage = () => {
   );
 
   return (
+    <>
     <EntityCrudPage<Supplier, SupplierFormSchema>
       title="Suppliers"
       subtitle="Manage vendors and supplier purchase terms"
@@ -63,6 +84,13 @@ const SuppliersPage = () => {
       schema={supplierSchema}
       defaultValues={defaultValues}
       canManage={canManage}
+      extraToolbar={
+        canManage ? (
+          <Button size="small" startIcon={<UploadFileIcon />} onClick={() => setImportOpen(true)}>
+            Import
+          </Button>
+        ) : undefined
+      }
       getRowLabel={(s) => s.name}
       toEditValues={(s) => ({
         name: s.name,
@@ -113,6 +141,23 @@ const SuppliersPage = () => {
         </>
       )}
     />
+    <BulkImportDialog<Supplier>
+      open={importOpen}
+      onClose={() => setImportOpen(false)}
+      title="Import Suppliers"
+      expectedColumns={SUPPLIER_IMPORT_COLUMNS}
+      templateFileName="suppliers-template.csv"
+      onDownloadTemplate={() => downloadTemplate().unwrap()}
+      onUpload={(file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return bulkImportSuppliers(formData).unwrap();
+      }}
+      onImportSuccess={(result) => {
+        dispatch(toastSuccess(`${result.importedCount} of ${result.totalRows} suppliers imported successfully.`));
+      }}
+    />
+    </>
   );
 };
 
